@@ -1,0 +1,35 @@
+app:
+  name: "auction\"
+  version: "1.0.0"
+
+log:
+  level: "debug"
+
+postgres:
+  max_pool_size: 10
+
+kafka:
+  bid_placed_topic: "bid.placed"
+  bid_result_topic: "bid.result"
+  auction_ended_topic: "auction.ended"
+  group_id: "bid-processor"
+
+redis:
+  cache_ttl: "5m"
+
+rate_limiter:
+  rps: 100
+  burst: 200
+
+retry:
+  max_attempts: 3
+  initial_wait: "100ms"
+  max_wait: "5s"
+  multiplier: 1.5
+
+circuit_breaker:
+  max_requests: 5
+  interval: "60s"
+  timeout: "30s"
+  min_requests: 3
+  failure_ratio: 0.6
