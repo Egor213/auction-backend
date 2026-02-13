@@ -2,10 +2,7 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"time"
 
 	e "auction-platform/internal/entity"
 	"auction-platform/internal/infrastruct/circuitbreaker"
@@ -18,34 +15,27 @@ import (
 	smap "auction-platform/internal/service/mappers"
 	errutils "auction-platform/pkg/errors"
 
-	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 )
 
 type AuctionService struct {
 	auctionRepo repo.Auctions
-	redis       *redis.Client
 	breaker     *circuitbreaker.CircuitBreaker
 	retryer     *retry.Retryer
 	metrics     *metrics.Metrics
-	cacheTTL    time.Duration
 }
 
 func NewAuctionService(
 	aRepo repo.Auctions,
-	rdb *redis.Client,
 	breaker *circuitbreaker.CircuitBreaker,
 	retryer *retry.Retryer,
 	m *metrics.Metrics,
-	cacheTTL time.Duration,
 ) *AuctionService {
 	return &AuctionService{
 		auctionRepo: aRepo,
-		redis:       rdb,
 		breaker:     breaker,
 		retryer:     retryer,
 		metrics:     m,
-		cacheTTL:    cacheTTL,
 	}
 }
 
@@ -70,7 +60,6 @@ func (s *AuctionService) CreateAuction(ctx context.Context, in sd.CreateAuctionI
 	}
 
 	auction := result.(e.Auction)
-	s.cacheAuction(ctx, auction)
 	s.metrics.AuctionsCreated.Inc()
 	s.metrics.ActiveAuctions.Inc()
 
@@ -78,12 +67,6 @@ func (s *AuctionService) CreateAuction(ctx context.Context, in sd.CreateAuctionI
 }
 
 func (s *AuctionService) GetAuction(ctx context.Context, auctionID string) (e.Auction, error) {
-	if cached := s.getCachedAuction(ctx, auctionID); cached != nil {
-		s.metrics.RedisCacheHits.Inc()
-		return *cached, nil
-	}
-	s.metrics.RedisCacheMisses.Inc()
-
 	result, cbErr := s.breaker.Execute("postgres", func() (any, error) {
 		var auction e.Auction
 		err := s.retryer.Do(ctx, "get_auction", func() error {
@@ -99,7 +82,6 @@ func (s *AuctionService) GetAuction(ctx context.Context, auctionID string) (e.Au
 	}
 
 	auction := result.(e.Auction)
-	s.cacheAuction(ctx, auction)
 	return auction, nil
 }
 
@@ -136,31 +118,4 @@ func (s *AuctionService) ListActive(ctx context.Context, page, pageSize int) ([]
 	}
 	r := result.(la)
 	return r.auctions, r.total, nil
-}
-
-func (s *AuctionService) InvalidateCache(ctx context.Context, auctionID string) {
-	key := fmt.Sprintf("auction:%s", auctionID)
-	s.redis.Del(ctx, key)
-}
-
-func (s *AuctionService) cacheAuction(ctx context.Context, auction e.Auction) {
-	data, err := json.Marshal(auction)
-	if err != nil {
-		return
-	}
-	key := fmt.Sprintf("auction:%s", auction.AuctionID)
-	s.redis.Set(ctx, key, data, s.cacheTTL)
-}
-
-func (s *AuctionService) getCachedAuction(ctx context.Context, auctionID string) *e.Auction {
-	key := fmt.Sprintf("auction:%s", auctionID)
-	data, err := s.redis.Get(ctx, key).Bytes()
-	if err != nil {
-		return nil
-	}
-	var auction e.Auction
-	if err := json.Unmarshal(data, &auction); err != nil {
-		return nil
-	}
-	return &auction
 }

@@ -7,7 +7,6 @@ import (
 	"auction-platform/internal/metrics"
 	"auction-platform/internal/repo"
 	"context"
-	"time"
 
 	e "auction-platform/internal/entity"
 	kd "auction-platform/internal/infrastruct/kafka/dto"
@@ -20,7 +19,6 @@ type Auctions interface {
 	CreateAuction(ctx context.Context, in sd.CreateAuctionInput) (e.Auction, error)
 	GetAuction(ctx context.Context, auctionID string) (e.Auction, error)
 	ListActive(ctx context.Context, page, pageSize int) ([]e.Auction, int64, error)
-	InvalidateCache(ctx context.Context, auctionID string)
 }
 
 type Bids interface {
@@ -43,7 +41,6 @@ type ServicesDependencies struct {
 	Retryer     *retry.Retryer
 	Producer    *kafkaclient.Producer
 	Metrics     *metrics.Metrics
-	CacheTTL    time.Duration
 	BidTopic    string
 	ResultTopic string
 }
@@ -51,8 +48,8 @@ type ServicesDependencies struct {
 func NewServices(deps ServicesDependencies) *Services {
 	return &Services{
 		Auctions: NewAuctionService(
-			deps.Repos.Auctions, deps.Redis, deps.Breaker,
-			deps.Retryer, deps.Metrics, deps.CacheTTL,
+			deps.Repos.Auctions, deps.Breaker,
+			deps.Retryer, deps.Metrics,
 		),
 		Bids: NewBidService(
 			deps.Repos.Auctions, deps.Repos.Bids, deps.Producer,

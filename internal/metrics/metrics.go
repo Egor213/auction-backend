@@ -31,12 +31,9 @@ type Metrics struct {
 	RetryAttempts  *prometheus.HistogramVec
 	RetryExhausted *prometheus.CounterVec
 
+	// TODO: прописать метрики в сервисах
 	DBQueryDuration *prometheus.HistogramVec
 	DBErrors        *prometheus.CounterVec
-
-	RedisCacheHits         prometheus.Counter
-	RedisCacheMisses       prometheus.Counter
-	RedisOperationDuration *prometheus.HistogramVec
 }
 
 func New() *Metrics {
@@ -120,16 +117,5 @@ func New() *Metrics {
 		DBErrors: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "auction_db_errors_total",
 		}, []string{"query"}),
-
-		RedisCacheHits: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "auction_redis_hits_total",
-		}),
-		RedisCacheMisses: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "auction_redis_misses_total",
-		}),
-		RedisOperationDuration: promauto.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "auction_redis_op_duration_seconds",
-			Buckets: []float64{.0005, .001, .005, .01, .025, .05, .1},
-		}, []string{"operation"}),
 	}
 }

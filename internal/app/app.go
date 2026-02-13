@@ -115,7 +115,6 @@ func Run() {
 		Retryer:     retryer,
 		Producer:    producer,
 		Metrics:     m,
-		CacheTTL:    cfg.Redis.CacheTTL,
 		BidTopic:    cfg.Kafka.BidPlacedTopic,
 		ResultTopic: cfg.Kafka.BidResultTopic,
 	})
